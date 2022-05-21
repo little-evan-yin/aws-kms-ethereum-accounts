@@ -8,7 +8,8 @@ from lambda_helper import (assemble_tx,
                            get_params,
                            get_tx_params,
                            calc_eth_address,
-                           get_kms_public_key)
+                           get_kms_public_key,
+                           sign_kms)
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "WARNING")
 LOG_FORMAT = "%(levelname)s:%(lineno)s:%(message)s"
@@ -60,6 +61,9 @@ def lambda_handler(event, context):
 
         nonce = event.get('nonce')
 
+        # get data from send request
+        data = event.get('data', '0x00')
+
         # optional params
         chainid = event.get('chainid')
         type = event.get('type')
@@ -78,6 +82,7 @@ def lambda_handler(event, context):
                                   nonce=nonce,
                                   chainid=chainid,
                                   type=type,
+                                  data=data,
                                   max_fee_per_gas=max_fee_per_gas,
                                   max_priority_fee_per_gas=max_priority_fee_per_gas)
 
@@ -89,3 +94,12 @@ def lambda_handler(event, context):
 
         return {"signed_tx_hash": raw_tx_signed_hash,
                 "signed_tx_payload": raw_tx_signed_payload}
+
+    elif operation == 'sign_raw':
+        key_id = os.getenv('KMS_KEY_ID')
+
+        data = event.get('data', b'0x00')
+
+        tx_sig = sign_kms(key_id, data)
+
+        return tx_sig

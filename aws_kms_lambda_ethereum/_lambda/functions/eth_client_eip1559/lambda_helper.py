@@ -151,12 +151,12 @@ def get_recovery_id(msg_hash, r, s, eth_checksum_addr, chainid) -> dict:
 
 
 def get_tx_params(dst_address: str, amount: int, nonce: int,
-                  chainid: int, type: int, max_fee_per_gas: int, max_priority_fee_per_gas: int) -> dict:
+                  chainid: int, type: int, data: str, max_fee_per_gas: int, max_priority_fee_per_gas: int) -> dict:
     transaction = {
         'nonce': nonce,
         'to': dst_address,
         'value': w3.toWei(amount, 'ether'),
-        'data': '0x00',
+        'data': data,
         'gas': 160000,
         'maxFeePerGas': max_fee_per_gas,
         'maxPriorityFeePerGas': max_priority_fee_per_gas,
@@ -187,3 +187,4 @@ def assemble_tx(tx_params: dict, params: EthKmsParams, eth_checksum_addr: str, c
     tx_hash = w3.keccak(hexstr=tx_encoded_hex).hex()
 
     return tx_hash, tx_encoded_hex
+
