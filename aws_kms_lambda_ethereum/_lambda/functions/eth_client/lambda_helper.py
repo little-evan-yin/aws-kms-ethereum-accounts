@@ -4,7 +4,6 @@
 import logging
 import os
 import sys
-import hashlib
 
 import asn1tools
 import boto3
@@ -92,7 +91,8 @@ def sign_kms_raw(key_id: str, data: str) -> dict:
 
         Ecdsa-Sig-Value  ::=  SEQUENCE  {
                r     INTEGER,
-               s     INTEGER  }
+               s     INTEGER,
+               v     INTEGER,}
 
         END
         '''
