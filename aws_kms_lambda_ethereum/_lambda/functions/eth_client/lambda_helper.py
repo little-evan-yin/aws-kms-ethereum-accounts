@@ -75,6 +75,16 @@ def sign_kms(key_id: str, msg_hash: bytes) -> dict:
     return response
 
 
+def sign_kms_raw(key_id: str, data: str) -> dict:
+    data_dict = {
+        "data": data
+    }
+    data_unsigned = serializable_unsigned_transaction_from_dict(transaction_dict=data_dict)
+    data_hash = data_unsigned.hash()
+
+    return sign_kms(key_id, data_hash)
+
+
 def calc_eth_address(pub_key) -> str:
     SUBJECT_ASN = '''
     Key DEFINITIONS ::= BEGIN

@@ -9,7 +9,7 @@ from lambda_helper import (assemble_tx,
                            get_tx_params,
                            calc_eth_address,
                            get_kms_public_key,
-                           sign_kms)
+                           sign_kms_raw)
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "WARNING")
 LOG_FORMAT = "%(levelname)s:%(lineno)s:%(message)s"
@@ -86,10 +86,9 @@ def lambda_handler(event, context):
 
     elif operation == 'sign_raw':
         key_id = os.getenv('KMS_KEY_ID')
-
-        data = event.get('data', b'0x00')
-
-        tx_sig = sign_kms(key_id, data)
+        # construct data
+        data = event.get('data', '0x00')
+        tx_sig = sign_kms_raw(key_id, data)
 
         return tx_sig
 
