@@ -11,6 +11,9 @@ from eth_account import Account
 from eth_account._utils.signing import (
     encode_transaction, serializable_unsigned_transaction_from_dict)
 from web3.auto import w3
+from eth_typing import Hash32
+from eth_utils.curried import keccak
+from eth_account.messages import encode_defunct
 
 session = boto3.session.Session()
 
@@ -73,6 +76,13 @@ def sign_kms(key_id: str, msg_hash: bytes) -> dict:
     )
 
     return response
+
+
+def sign_kms_raw(key_id: str, data: str) -> dict:
+    msghash = encode_defunct(text=data)
+    message_hash = Hash32(keccak(msghash.body))
+
+    return sign_kms(key_id, message_hash)
 
 
 def calc_eth_address(pub_key) -> str:

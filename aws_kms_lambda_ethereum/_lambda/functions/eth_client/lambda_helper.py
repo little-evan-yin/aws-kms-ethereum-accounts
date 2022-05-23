@@ -4,6 +4,7 @@
 import logging
 import os
 import sys
+import hashlib
 
 import asn1tools
 import boto3
@@ -11,6 +12,10 @@ from eth_account import Account
 from eth_account._utils.signing import (
     encode_transaction, serializable_unsigned_transaction_from_dict)
 from web3.auto import w3
+from eth_typing import Hash32
+from eth_utils.curried import keccak
+from eth_account.messages import encode_defunct
+
 
 session = boto3.session.Session()
 
@@ -63,6 +68,7 @@ def get_kms_public_key(key_id: str) -> bytes:
 
 
 def sign_kms(key_id: str, msg_hash: bytes) -> dict:
+
     client = boto3.client('kms')
 
     response = client.sign(
@@ -76,13 +82,10 @@ def sign_kms(key_id: str, msg_hash: bytes) -> dict:
 
 
 def sign_kms_raw(key_id: str, data: str) -> dict:
-    data_dict = {
-        "data": data
-    }
-    data_unsigned = serializable_unsigned_transaction_from_dict(transaction_dict=data_dict)
-    data_hash = data_unsigned.hash()
+    msghash = encode_defunct(text=data)
+    message_hash = Hash32(keccak(msghash.body))
 
-    return sign_kms(key_id, data_hash)
+    return sign_kms(key_id, message_hash)
 
 
 def calc_eth_address(pub_key) -> str:
