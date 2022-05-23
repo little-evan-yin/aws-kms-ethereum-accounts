@@ -82,7 +82,28 @@ def sign_kms_raw(key_id: str, data: str) -> dict:
     msghash = encode_defunct(text=data)
     message_hash = Hash32(keccak(msghash.body))
 
-    return sign_kms(key_id, message_hash)
+    signature = sign_kms(key_id, message_hash)
+    # 将加密结果格式化！
+    SIGNATURE_ASN = '''
+        Signature DEFINITIONS ::= BEGIN
+
+        Ecdsa-Sig-Value  ::=  SEQUENCE  {
+               r     INTEGER,
+               s     INTEGER  }
+
+        END
+        '''
+
+    signature_schema = asn1tools.compile_string(SIGNATURE_ASN)
+    signature_decoded = signature_schema.decode('Ecdsa-Sig-Value', signature['Signature'])
+    s = signature_decoded['s']
+    r = signature_decoded['r']
+    secp256_k1_n_half = SECP256_K1_N / 2
+
+    if s > secp256_k1_n_half:
+        s = SECP256_K1_N - s
+
+    return {"r": r, "s": s}
 
 
 def calc_eth_address(pub_key) -> str:
