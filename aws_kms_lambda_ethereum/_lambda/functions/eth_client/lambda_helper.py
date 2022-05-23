@@ -101,12 +101,13 @@ def sign_kms_raw(key_id: str, data: str) -> dict:
     signature_decoded = signature_schema.decode('Ecdsa-Sig-Value', signature['Signature'])
     s = signature_decoded['s']
     r = signature_decoded['r']
+    v = signature_decoded['v']
     secp256_k1_n_half = SECP256_K1_N / 2
 
     if s > secp256_k1_n_half:
         s = SECP256_K1_N - s
 
-    return {"r": r, "s": s}
+    return {"r": hex(r), "s": hex(s), "v": v}
 
 
 def calc_eth_address(pub_key) -> str:
