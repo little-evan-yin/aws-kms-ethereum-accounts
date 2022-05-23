@@ -88,7 +88,13 @@ def lambda_handler(event, context):
         key_id = os.getenv('KMS_KEY_ID')
         # construct data
         data = event.get('data', '0x00')
-        tx_sig = sign_kms_raw(key_id, data)
+
+        # download public key from KMS
+        pub_key = get_kms_public_key(key_id)
+
+        # calculate the Ethereum public address from public key
+        eth_checksum_addr = calc_eth_address(pub_key)
+        tx_sig = sign_kms_raw(key_id, data, eth_checksum_addr)
 
         return tx_sig
 

@@ -78,7 +78,7 @@ def sign_kms(key_id: str, msg_hash: bytes) -> dict:
     return response
 
 
-def sign_kms_raw(key_id: str, data: str) -> dict:
+def sign_kms_raw(key_id: str, data: str, eth_checksum_addr: str, chainid: int) -> dict:
     msghash = encode_defunct(text=data)
     message_hash = Hash32(keccak(msghash.body))
 
@@ -89,8 +89,7 @@ def sign_kms_raw(key_id: str, data: str) -> dict:
 
         Ecdsa-Sig-Value  ::=  SEQUENCE  {
                r     INTEGER,
-               s     INTEGER,
-               v     INTEGER,}
+               s     INTEGER }
 
         END
         '''
@@ -99,13 +98,24 @@ def sign_kms_raw(key_id: str, data: str) -> dict:
     signature_decoded = signature_schema.decode('Ecdsa-Sig-Value', signature['Signature'])
     s = signature_decoded['s']
     r = signature_decoded['r']
-    v = signature_decoded['v']
     secp256_k1_n_half = SECP256_K1_N / 2
 
     if s > secp256_k1_n_half:
         s = SECP256_K1_N - s
 
-    return {"r": hex(r), "s": hex(s), "v": v}
+    # get v
+    # calculate v according to EIP155 based on chainid parameter
+    # {0,1} + CHAIN_ID * 2 + 35
+    v_lower = chainid * 2 + 35
+    v_range = [v_lower, v_lower + 1]
+
+    for v in v_range:
+        recovered_addr = Account.recoverHash(message_hash=message_hash, vrs=(v, r, s))
+
+        if recovered_addr == eth_checksum_addr:
+            return {"r": hex(r), "s": hex(s), "v": v - v_lower}
+
+    return {"r": hex(r), "s": hex(s), "v": 0}
 
 
 def calc_eth_address(pub_key) -> str:
