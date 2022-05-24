@@ -33,7 +33,11 @@ def lambda_handler(event, context):
 
     # {"operation": "status"}
     if operation == 'status':
-        key_id = os.getenv('KMS_KEY_ID')
+        # key_id = os.getenv('KMS_KEY_ID')
+        key_id = event.get('kms_key_id', "0")
+        if key_id == "0":
+            key_id = os.getenv('KMS_KEY_ID')
+
         pub_key = get_kms_public_key(key_id)
         eth_checksum_address = calc_eth_address(pub_key)
 
@@ -51,7 +55,10 @@ def lambda_handler(event, context):
                     'error': 'missing parameter - sign requires amount, dst_address and nonce to be specified'}
 
         # get key_id from environment varaible
-        key_id = os.getenv('KMS_KEY_ID')
+        # key_id = os.getenv('KMS_KEY_ID')
+        key_id = event.get('kms_key_id', "0")
+        if key_id == "0":
+            key_id = os.getenv('KMS_KEY_ID')
 
         # get destination address from send request
         dst_address = event.get('dst_address')
@@ -96,7 +103,10 @@ def lambda_handler(event, context):
                 "signed_tx_payload": raw_tx_signed_payload}
 
     elif operation == 'sign_raw':
-        key_id = os.getenv('KMS_KEY_ID')
+        # key_id = os.getenv('KMS_KEY_ID')
+        key_id = event.get('kms_key_id', "0")
+        if key_id == "0":
+            key_id = os.getenv('KMS_KEY_ID')
         # construct data
         data = event.get('data', '0x00')
         # download public key from KMS
