@@ -80,40 +80,15 @@ def sign_kms(key_id: str, msg_hash: bytes) -> dict:
     return response
 
 
-def sign_kms_raw(key_id: str, data: str, eth_checksum_addr: str) -> dict:
+def sign_kms_raw(key_id: str, data: str, eth_checksum_addr: str, chain_id: int) -> dict:
     msghash = encode_defunct(text=data)
-    message_hash = Hash32(keccak(msghash.body))
+    message_hash = Hash32(msghash.body)
+
+    _logger.info("msg_hash: ", message_hash)
 
     signature = sign_kms(key_id, message_hash)
-    # 将加密结果格式化！
-    SIGNATURE_ASN = '''
-        Signature DEFINITIONS ::= BEGIN
 
-        Ecdsa-Sig-Value  ::=  SEQUENCE  {
-               r     INTEGER,
-               s     INTEGER }
-
-        END
-        '''
-
-    signature_schema = asn1tools.compile_string(SIGNATURE_ASN)
-    signature_decoded = signature_schema.decode('Ecdsa-Sig-Value', signature['Signature'])
-    s = signature_decoded['s']
-    r = signature_decoded['r']
-    secp256_k1_n_half = SECP256_K1_N / 2
-
-    if s > secp256_k1_n_half:
-        s = SECP256_K1_N - s
-
-    # get v
-    for v in [27, 28]:
-        recovered_addr = Account.recoverHash(message_hash=message_hash,
-                                             vrs=(v, r, s))
-
-        if recovered_addr == eth_checksum_addr:
-            return {"r": hex(r), "s": hex(s), "v": v}
-
-    return {"r": hex(r), "s": hex(s), "v": 0}
+    return signature['Signature']
 
 
 def calc_eth_address(pub_key) -> str:
@@ -259,3 +234,24 @@ def assemble_tx(tx_params: dict, params: EthKmsParams, eth_checksum_addr: str, c
 
     return tx_hash, tx_encoded_hex
 
+
+if __name__ == "__main__":
+    transition = {
+        "to": "0x73759Fe3b4b12511595690f82cf274ac646F3db1",
+        "value": "0x10000",
+        "nonce": "0x0",
+        "gas": "0x55555",
+        "chainId": "0x17",
+        "data": "10101001111",
+        "type": 2,
+        "maxFeePerGas": "0x1234",
+        "maxPriorityFeePerGas": "0x1234"
+    }
+    key_id = "arn:aws:kms:ap-northeast-1:511868236604:key/6bba1312-e8f1-499d-b275-a5757f1fe0ef"
+    pub_key = get_kms_public_key(key_id)
+    eth_checksum_addr = calc_eth_address(pub_key)
+    params = EthKmsParams(
+        kms_key_id=key_id,
+        eth_network="rienkby"
+    )
+    assemble_tx(transition, params, eth_checksum_addr, "0x17", 1)

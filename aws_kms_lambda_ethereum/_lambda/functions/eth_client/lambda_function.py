@@ -29,7 +29,7 @@ def lambda_handler(event, context):
 
     operation = event.get('operation')
     if not operation:
-        raise ValueError('operation needs to be specified in request and needs to be eigher "status" or "send"')
+        raise ValueError('operation needs to be specified in request and needs to be either "status", "sign" or "sign_raw"')
 
     # {"operation": "status"}
     if operation == 'status':
@@ -41,7 +41,7 @@ def lambda_handler(event, context):
         pub_key = get_kms_public_key(key_id)
         eth_checksum_address = calc_eth_address(pub_key)
 
-        return {'eth_checksum_address': eth_checksum_address}
+        return {'address': eth_checksum_address, "pub_key": pub_key}
 
     elif operation == 'sign':
         # get key_id from environment varaible
@@ -71,7 +71,7 @@ def lambda_handler(event, context):
 
         # optional params
         # type
-        type = int(event.get('type', -1), 16)
+        type = int(str(event.get('type', "-1")), 16)
 
         # gasPrice
         gas_price = event.get('gasPrice', "0x00")
@@ -93,8 +93,9 @@ def lambda_handler(event, context):
         eth_checksum_addr = calc_eth_address(pub_key)
 
         # collect raw parameters for Ethereum transaction
-        tx_params = get_tx_params(to_address, value, nonce, data, chain_id, gas, gas_price, type,
-                                  max_fee_per_gas, max_priority_fee_per_gas)
+        tx_params = get_tx_params(to_address, value, nonce, data, chain_id, gas, gas_price, type, max_fee_per_gas, max_priority_fee_per_gas)
+
+        _logger.info("tx_params: ", tx_params)
 
         # assemble Ethereum transaction and sign it offline
         raw_tx_signed_hash, raw_tx_signed_payload = assemble_tx(tx_params=tx_params,
@@ -112,13 +113,16 @@ def lambda_handler(event, context):
             key_id = os.getenv('KMS_KEY_ID')
         # construct data
         data = event.get('data', '0x00')
+        # chain_id
+        chain_id = event.get('chainId')
 
         # download public key from KMS
         pub_key = get_kms_public_key(key_id)
 
         # calculate the Ethereum public address from public key
         eth_checksum_addr = calc_eth_address(pub_key)
-        tx_sig = sign_kms_raw(key_id, data, eth_checksum_addr)
+        tx_sig = sign_kms_raw(key_id, data, eth_checksum_addr, chain_id)
 
-        return tx_sig
+        return {"signature": tx_sig}
+
 
