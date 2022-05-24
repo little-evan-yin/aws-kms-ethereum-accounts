@@ -3,7 +3,7 @@
 
 import logging
 import os
-import binascii
+from eth_utils import to_hex
 
 from lambda_helper import (assemble_tx,
                            get_params,
@@ -43,7 +43,7 @@ def lambda_handler(event, context):
         eth_checksum_address = calc_eth_address(pub_key)
 
         # pub_key to str
-        pub_key_str = binascii.b2a_hex(pub_key).decode("utf-8")
+        pub_key_str = to_hex(pub_key)
 
         return {'address': eth_checksum_address, "pub_key": pub_key_str}
 
@@ -126,7 +126,7 @@ def lambda_handler(event, context):
         # # calculate the Ethereum public address from public key
         # eth_checksum_addr = calc_eth_address(pub_key)
         tx_sig = sign_kms_raw(key_id, data)
-
-        return {"signature": binascii.b2a_hex(tx_sig).decode("utf-8")}
+        tx_sig_str = to_hex(tx_sig)
+        return {"signature": tx_sig_str}
 
 
