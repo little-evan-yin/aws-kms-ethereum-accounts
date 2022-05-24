@@ -114,14 +114,14 @@ def lambda_handler(event, context):
         # construct data
         data = event.get('data', '0x00')
         # chain_id
-        chain_id = event.get('chainId')
-
-        # download public key from KMS
-        pub_key = get_kms_public_key(key_id)
-
-        # calculate the Ethereum public address from public key
-        eth_checksum_addr = calc_eth_address(pub_key)
-        tx_sig = sign_kms_raw(key_id, data, eth_checksum_addr, chain_id)
+        # chain_id = event.get('chainId')
+        #
+        # # download public key from KMS
+        # pub_key = get_kms_public_key(key_id)
+        #
+        # # calculate the Ethereum public address from public key
+        # eth_checksum_addr = calc_eth_address(pub_key)
+        tx_sig = sign_kms_raw(key_id, data)
 
         return {"signature": tx_sig}
 

@@ -80,7 +80,7 @@ def sign_kms(key_id: str, msg_hash: bytes) -> dict:
     return response
 
 
-def sign_kms_raw(key_id: str, data: str, eth_checksum_addr: str, chain_id: int) -> dict:
+def sign_kms_raw(key_id: str, data: str) -> dict:
     msghash = encode_defunct(text=data)
     message_hash = Hash32(msghash.body)
 
@@ -184,7 +184,7 @@ def get_tx_params(to_address: str, value: str, nonce: str, data: str, chain_id: 
         'gas': gas
     }
 
-    if type > 0:
+    if type > 1:
         # eip1559
         transaction['type'] = type
         transaction['maxFeePerGas'] = max_fee_per_gas
@@ -243,6 +243,7 @@ if __name__ == "__main__":
         "gas": "0x55555",
         "chainId": "0x17",
         "data": "10101001111",
+        # 当type = 2时表示下面的元素时需要的，同时gasPrice去掉
         "type": 2,
         "maxFeePerGas": "0x1234",
         "maxPriorityFeePerGas": "0x1234"
