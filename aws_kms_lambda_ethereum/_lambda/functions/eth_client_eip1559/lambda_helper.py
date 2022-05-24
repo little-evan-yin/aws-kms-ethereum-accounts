@@ -198,7 +198,7 @@ def get_tx_params(dst_address: str, amount: int, nonce: int,
     transaction = {
         'nonce': nonce,
         'to': dst_address,
-        'value': w3.toWei(amount, 'ether'),
+        'value': amount,
         'data': data,
         'gas': 160000,
         'maxFeePerGas': max_fee_per_gas,
