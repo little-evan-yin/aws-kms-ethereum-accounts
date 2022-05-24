@@ -186,14 +186,14 @@ def get_recovery_id(msg_hash, r, s, eth_checksum_addr, chain_id, type) -> dict:
             recovered_addr = Account.recoverHash(message_hash=msg_hash, vrs=(v, r, s))
 
             if recovered_addr == eth_checksum_addr:
-                return {"recovered_addr": recovered_addr, "v": v - v_lower}
+                return {"recovered_addr": recovered_addr, 'v': v - v_lower}
     else:
         for v in [27, 28]:
             recovered_addr = Account.recoverHash(message_hash=msg_hash,
                                                  vrs=(v, r, s))
 
             if recovered_addr == eth_checksum_addr:
-                return {'recovered_addr': recovered_addr, 'v': v}
+                return {"recovered_addr": recovered_addr, 'v': v}
 
     return {}
 

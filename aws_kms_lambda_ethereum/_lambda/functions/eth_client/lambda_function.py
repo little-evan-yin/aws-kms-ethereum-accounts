@@ -71,7 +71,7 @@ def lambda_handler(event, context):
 
         # optional params
         # type
-        type = event.get('type', -1)
+        type = int(event.get('type', -1), 16)
 
         # gasPrice
         gas_price = event.get('gasPrice', "0x00")
@@ -103,8 +103,7 @@ def lambda_handler(event, context):
                                                                 chain_id=chain_id,
                                                                 type=type)
 
-        return {"signed_tx_hash": raw_tx_signed_hash,
-                "signed_tx_payload": raw_tx_signed_payload}
+        return {"signed_tx": raw_tx_signed_payload}
 
     elif operation == 'sign_raw':
         # key_id = os.getenv('KMS_KEY_ID')
