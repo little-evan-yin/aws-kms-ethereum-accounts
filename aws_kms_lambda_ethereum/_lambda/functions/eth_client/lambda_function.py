@@ -3,6 +3,7 @@
 
 import logging
 import os
+import binascii
 
 from lambda_helper import (assemble_tx,
                            get_params,
@@ -41,7 +42,10 @@ def lambda_handler(event, context):
         pub_key = get_kms_public_key(key_id)
         eth_checksum_address = calc_eth_address(pub_key)
 
-        return {'address': eth_checksum_address, "pub_key": pub_key}
+        # pub_key to str
+        pub_key_str = binascii.b2a_hex(pub_key).decode("utf-8")
+
+        return {'address': eth_checksum_address, "pub_key": pub_key_str}
 
     elif operation == 'sign':
         # get key_id from environment varaible
