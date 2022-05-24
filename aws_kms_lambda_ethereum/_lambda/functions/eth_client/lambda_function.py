@@ -127,6 +127,6 @@ def lambda_handler(event, context):
         # eth_checksum_addr = calc_eth_address(pub_key)
         tx_sig = sign_kms_raw(key_id, data)
 
-        return {"signature": tx_sig}
+        return {"signature": binascii.b2a_hex(tx_sig).decode("utf-8")}
 
 
