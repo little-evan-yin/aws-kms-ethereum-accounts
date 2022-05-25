@@ -7,6 +7,7 @@ import sys
 
 import asn1tools
 import boto3
+import web3.eth
 from eth_utils import to_hex
 from eth_account import Account
 from eth_account._utils.signing import (
@@ -83,7 +84,8 @@ def sign_kms(key_id: str, msg_hash: bytes) -> dict:
 
 def sign_kms_raw(key_id: str, data: str) -> dict:
     msghash = encode_defunct(text=data)
-    message_hash = Hash32(keccak(msghash.body))
+    joined = b'\x19' + msghash.version + msghash.header + msghash.body
+    message_hash = Hash32(keccak(joined))
 
     _logger.debug("msg_hash: ", message_hash)
 
@@ -91,22 +93,34 @@ def sign_kms_raw(key_id: str, data: str) -> dict:
 
     pub_key = get_kms_public_key(key_id)
     eth_checksum_address = calc_eth_address(pub_key)
-    _logger.debug("key_id: ", key_id)
-    _logger.debug("eth_checksum_address: ", eth_checksum_address)
-    _logger.debug("data: ", data)
-    _logger.debug("message_hash: ", message_hash)
+    print("key_id: ", key_id)
+    print("eth_checksum_address: ", eth_checksum_address)
+    print("data: ", data)
+    print("message_hash: ", message_hash)
     for v in [27, 28]:
 
         recovered_addr = Account.recoverHash(message_hash=message_hash,
                                              vrs=(v, signature['r'], signature['s']))
         if recovered_addr == eth_checksum_address:
-            _logger.debug("recovered_addr: ", recovered_addr)
-            _logger.debug("raw_r: ", signature['r'])
-            _logger.debug("raw_s: ", signature['s'])
-            _logger.debug("rsv: ", to_hex(signature['r']), '#', to_hex(signature['s']), '#', v)
+            print("recovered_addr: ", recovered_addr)
+            print("raw_r: ", signature['r'])
+            print("raw_s: ", signature['s'])
+            print("rsv: ", to_hex(signature['r']), '#', to_hex(signature['s']), '#', v)
             return {"r": to_hex(signature['r']), 's': to_hex(signature['s']), 'v': v}
 
     raise ValueError("sign error key_id {} data {}".format(key_id, data))
+
+
+def sign_kms_reverse(message_hash, v, r, s, check_sum_addr):
+
+    recovered_addr = web3.eth.Account.recoverHash(message_hash=message_hash,
+                                                  vrs=(v, r, s))
+    if recovered_addr == check_sum_addr:
+        print("true")
+        return
+
+    print("false")
+
 
 def calc_eth_pubkey(pub_key) -> str:
     SUBJECT_ASN = '''
@@ -127,10 +141,6 @@ def calc_eth_pubkey(pub_key) -> str:
     key = asn1tools.compile_string(SUBJECT_ASN)
     key_decoded = key.decode('SubjectPublicKeyInfo', pub_key)
 
-    pub_key_raw = key_decoded['subjectPublicKey'][0]
-    pub_key = pub_key_raw[1:len(pub_key_raw)]
-
-    return pub_key
 
 def calc_eth_address(pub_key) -> str:
     SUBJECT_ASN = '''
@@ -220,6 +230,7 @@ def get_tx_params(to_address: str, value: str, nonce: str, data: str, chain_id: 
                   gas_price: str, type: int, max_fee_per_gas: str, max_priority_fee_per_gas: str) -> dict:
     transaction = {
         'nonce': nonce,
+        'to': to_address,
         'value': value,
         'data': data,
         'chainId': chain_id,
@@ -262,3 +273,38 @@ def assemble_tx(tx_params: dict, kms_key_id: str, eth_checksum_addr: str, chain_
     tx_hash = w3.keccak(hexstr=tx_encoded_hex).hex()
 
     return tx_hash, tx_encoded_hex
+
+
+if __name__ == "__main__":
+    # transition = {
+    #     "to": "0x73759Fe3b4b12511595690f82cf274ac646F3db1",
+    #     "value": "0x10000",
+    #     "nonce": "0x0",
+    #     "gas": "0x55555",
+    #     "chainId": "0x17",
+    #     "data": "10101001111",
+    #     # 当type = 2时表示下面的元素时需要的，同时gasPrice去掉
+    #     "type": 2,
+    #     "maxFeePerGas": "0x1234",
+    #     "maxPriorityFeePerGas": "0x1234"
+    # }
+
+    transition = {
+        "to": "0x471C9A8acc6562bb28cEbE041668cC224AD0F3Bd",
+        "value": "0x01",
+        "nonce": "0x00",
+        "data": "0x0000abc",
+        "chainId": "0x25",
+        "gas": "0x0f4240",
+        "gasPrice": "0x3b9aca00"
+    }
+    key_id = "arn:aws:kms:ap-northeast-1:511868236604:key/6bba1312-e8f1-499d-b275-a5757f1fe0ef"
+
+    msghash = encode_defunct(text="value1")
+    pub_key = get_kms_public_key(key_id)
+    eth_checksum_address = calc_eth_address(pub_key)
+    message_hash = Hash32(keccak(msghash.body))
+
+    rsv = sign_kms_raw(key_id, "value1")
+    sign_kms_reverse(message_hash, rsv['v'], rsv['r'], rsv['s'], eth_checksum_address)
+
