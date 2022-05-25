@@ -79,7 +79,7 @@ def lambda_handler(event, context):
 
         # optional params
         # type
-        type = int(str(event.get('type', "-1")), 16)
+        type = int(str(event.get('type', "1")), 16)
 
         # gasPrice
         gas_price = event.get('gasPrice', "0x00")

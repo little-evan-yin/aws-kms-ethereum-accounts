@@ -7,7 +7,6 @@ import sys
 
 import asn1tools
 import boto3
-import web3.eth
 from eth_utils import to_hex
 from eth_account import Account
 from eth_account._utils.signing import (
@@ -84,43 +83,19 @@ def sign_kms(key_id: str, msg_hash: bytes) -> dict:
 
 def sign_kms_raw(key_id: str, data: str) -> dict:
     msghash = encode_defunct(text=data)
-
-    joined = b'\x19' + version + msghash.header + msghash.body
-    message_hash = Hash32(keccak(msghash.body))
-
-    _logger.debug("msg_hash: ", message_hash)
-
+    joined = b'\x19' + msghash.version + msghash.header + msghash.body
+    message_hash = Hash32(keccak(joined))
     signature = find_eth_signature(key_id, message_hash)
 
     pub_key = get_kms_public_key(key_id)
     eth_checksum_address = calc_eth_address(pub_key)
-    print("key_id: ", key_id)
-    print("eth_checksum_address: ", eth_checksum_address)
-    print("data: ", data)
-    print("message_hash: ", message_hash)
     for v in [27, 28]:
-
         recovered_addr = Account.recoverHash(message_hash=message_hash,
                                              vrs=(v, signature['r'], signature['s']))
         if recovered_addr == eth_checksum_address:
-            print("recovered_addr: ", recovered_addr)
-            print("raw_r: ", signature['r'])
-            print("raw_s: ", signature['s'])
-            print("rsv: ", to_hex(signature['r']), '#', to_hex(signature['s']), '#', v)
             return {"r": to_hex(signature['r']), 's': to_hex(signature['s']), 'v': v}
 
     raise ValueError("sign error key_id {} data {}".format(key_id, data))
-
-
-def sign_kms_reverse(message_hash, v, r, s, check_sum_addr):
-
-    recovered_addr = web3.eth.Account.recoverHash(message_hash=message_hash,
-                                                  vrs=(v, r, s))
-    if recovered_addr == check_sum_addr:
-        print("true")
-        return
-
-    print("false")
 
 
 def calc_eth_pubkey(pub_key) -> str:
@@ -204,15 +179,13 @@ def find_eth_signature(kms_key_id: str, plaintext: bytes) -> dict:
     if s > secp256_k1_n_half:
         s = SECP256_K1_N - s
 
-
-
     return {'r': r, 's': s}
 
 
-def get_recovery_id(msg_hash, r, s, eth_checksum_addr, chain_id, type) -> dict:
+def get_recovery_id(msg_hash, r, s, eth_checksum_addr, chain_id) -> dict:
     # 16 to 10
     chainid = int(chain_id, 16)
-    if chainid > 0 and type > 1:
+    if chainid > 0:
         v_lower = chainid * 2 + 35
         v_range = [v_lower, v_lower + 1]
 
@@ -222,14 +195,6 @@ def get_recovery_id(msg_hash, r, s, eth_checksum_addr, chain_id, type) -> dict:
             if recovered_addr == eth_checksum_addr:
                 print("1. recovered_addr: ", recovered_addr)
                 return {"recovered_addr": recovered_addr, 'v': v - v_lower}
-    else:
-        for v in [27, 28]:
-            recovered_addr = Account.recoverHash(message_hash=msg_hash,
-                                                 vrs=(v, r, s))
-
-            if recovered_addr == eth_checksum_addr:
-                print("2. recovered_addr: ", recovered_addr)
-                return {"recovered_addr": recovered_addr, 'v': v}
 
     return {}
 
@@ -264,8 +229,6 @@ def assemble_tx(tx_params: dict, kms_key_id: str, eth_checksum_addr: str, chain_
     print("tx_unsigned: ", tx_unsigned)
     tx_hash = tx_unsigned.hash()
 
-    print("tx_hash: ", tx_hash)
-
     tx_sig = find_eth_signature(kms_key_id,
                                 plaintext=tx_hash)
 
@@ -273,8 +236,7 @@ def assemble_tx(tx_params: dict, kms_key_id: str, eth_checksum_addr: str, chain_
                                                 r=tx_sig['r'],
                                                 s=tx_sig['s'],
                                                 eth_checksum_addr=eth_checksum_addr,
-                                                chain_id=chain_id,
-                                                type=type)
+                                                chain_id=chain_id)
 
     print("tx_eth_recovered_pub_addr: ", tx_eth_recovered_pub_addr)
     tx_encoded = encode_transaction(unsigned_transaction=tx_unsigned,
