@@ -90,6 +90,11 @@ def lambda_handler(event, context):
         # maxPriorityFeePerGas
         max_priority_fee_per_gas = event.get("maxPriorityFeePerGas", "0x00")
 
+        pub_key = get_kms_public_key(key_id)
+        eth_checksum_address = calc_eth_address(pub_key)
+        if int(chain_id, 16) <= 0:
+            return {"chainId": chain_id, "gas": gas, "type": type,  "eth_checksum_address": eth_checksum_address}
+
         if not (len(value) > 0 and len(nonce) > 0 and len(gas) > 0):
             return {'operation': 'sign',
                     'error': 'missing parameter - sign requires value, to_address, nonce and gas to be specified'}
@@ -121,14 +126,7 @@ def lambda_handler(event, context):
             raise ValueError("key id is {}".format(key_id))
         # construct data
         data = event.get('data', '0x00')
-        # chain_id
-        # chain_id = event.get('chainId')
-        #
-        # # download public key from KMS
-        # pub_key = get_kms_public_key(key_id)
-        #
-        # # calculate the Ethereum public address from public key
-        # eth_checksum_addr = calc_eth_address(pub_key)
+
         signature = sign_kms_raw(key_id, data)
         return signature
 

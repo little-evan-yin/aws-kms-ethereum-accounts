@@ -84,8 +84,9 @@ def sign_kms(key_id: str, msg_hash: bytes) -> dict:
 
 def sign_kms_raw(key_id: str, data: str) -> dict:
     msghash = encode_defunct(text=data)
-    joined = b'\x19' + msghash.version + msghash.header + msghash.body
-    message_hash = Hash32(keccak(joined))
+
+    joined = b'\x19' + version + msghash.header + msghash.body
+    message_hash = Hash32(keccak(msghash.body))
 
     _logger.debug("msg_hash: ", message_hash)
 
@@ -140,6 +141,11 @@ def calc_eth_pubkey(pub_key) -> str:
     '''
     key = asn1tools.compile_string(SUBJECT_ASN)
     key_decoded = key.decode('SubjectPublicKeyInfo', pub_key)
+
+    pub_key_raw = key_decoded['subjectPublicKey'][0]
+    pub_key = pub_key_raw[1:len(pub_key_raw)]
+
+    return pub_key
 
 
 def calc_eth_address(pub_key) -> str:
@@ -206,7 +212,7 @@ def find_eth_signature(kms_key_id: str, plaintext: bytes) -> dict:
 def get_recovery_id(msg_hash, r, s, eth_checksum_addr, chain_id, type) -> dict:
     # 16 to 10
     chainid = int(chain_id, 16)
-    if chainid > 0 and type > 0:
+    if chainid > 0 and type > 1:
         v_lower = chainid * 2 + 35
         v_range = [v_lower, v_lower + 1]
 
@@ -214,6 +220,7 @@ def get_recovery_id(msg_hash, r, s, eth_checksum_addr, chain_id, type) -> dict:
             recovered_addr = Account.recoverHash(message_hash=msg_hash, vrs=(v, r, s))
 
             if recovered_addr == eth_checksum_addr:
+                print("1. recovered_addr: ", recovered_addr)
                 return {"recovered_addr": recovered_addr, 'v': v - v_lower}
     else:
         for v in [27, 28]:
@@ -221,6 +228,7 @@ def get_recovery_id(msg_hash, r, s, eth_checksum_addr, chain_id, type) -> dict:
                                                  vrs=(v, r, s))
 
             if recovered_addr == eth_checksum_addr:
+                print("2. recovered_addr: ", recovered_addr)
                 return {"recovered_addr": recovered_addr, 'v': v}
 
     return {}
@@ -253,7 +261,10 @@ def get_tx_params(to_address: str, value: str, nonce: str, data: str, chain_id: 
 
 def assemble_tx(tx_params: dict, kms_key_id: str, eth_checksum_addr: str, chain_id: str, type: int) -> (bytes, bytes):
     tx_unsigned = serializable_unsigned_transaction_from_dict(transaction_dict=tx_params)
+    print("tx_unsigned: ", tx_unsigned)
     tx_hash = tx_unsigned.hash()
+
+    print("tx_hash: ", tx_hash)
 
     tx_sig = find_eth_signature(kms_key_id,
                                 plaintext=tx_hash)
@@ -265,13 +276,14 @@ def assemble_tx(tx_params: dict, kms_key_id: str, eth_checksum_addr: str, chain_
                                                 chain_id=chain_id,
                                                 type=type)
 
-    _logger.info("tx_eth_recovered_pub_addr: ", tx_eth_recovered_pub_addr)
+    print("tx_eth_recovered_pub_addr: ", tx_eth_recovered_pub_addr)
     tx_encoded = encode_transaction(unsigned_transaction=tx_unsigned,
                                     vrs=(tx_eth_recovered_pub_addr['v'], tx_sig['r'], tx_sig['s']))
 
     tx_encoded_hex = w3.toHex(tx_encoded)
     tx_hash = w3.keccak(hexstr=tx_encoded_hex).hex()
 
+    print("tx_hash:", tx_hash)
     return tx_hash, tx_encoded_hex
 
 
@@ -288,23 +300,47 @@ if __name__ == "__main__":
     #     "maxFeePerGas": "0x1234",
     #     "maxPriorityFeePerGas": "0x1234"
     # }
+    """
+      operation: 'sign',
+  kms_key_id: 'arn:aws:kms:ap-northeast-1:511868236604:key/09576602-8bb4-422d-863e-8c3225ddcd90',
+  to: '0x471C9A8acc6562bb28cEbE041668cC224AD0F3Bd',
+  value: '0x00',
+  nonce: '0x00',
+  data: '0x0000abc',
+  chainId: '0x25',
+  gas: '0x0f4240',
+  gasPrice: '0x00'
+
+    """
 
     transition = {
         "to": "0x471C9A8acc6562bb28cEbE041668cC224AD0F3Bd",
-        "value": "0x01",
+        "value": "0x00",
         "nonce": "0x00",
         "data": "0x0000abc",
         "chainId": "0x25",
         "gas": "0x0f4240",
-        "gasPrice": "0x3b9aca00"
+        "gasPrice": "0x00"
     }
-    key_id = "arn:aws:kms:ap-northeast-1:511868236604:key/6bba1312-e8f1-499d-b275-a5757f1fe0ef"
-
-    msghash = encode_defunct(text="value1")
+    key_id = "arn:aws:kms:ap-northeast-1:511868236604:key/09576602-8bb4-422d-863e-8c3225ddcd90"
     pub_key = get_kms_public_key(key_id)
-    eth_checksum_address = calc_eth_address(pub_key)
-    message_hash = Hash32(keccak(msghash.body))
+    eth_checksum_addr = calc_eth_address(pub_key)
+    # params = EthKmsParams(
+    #     kms_key_id=key_id,
+    #     eth_network="re"
+    # )
+    print("eth_check_sum_addr: ", eth_checksum_addr)
+    raw_tx_signed_hash, raw_tx_signed_payload = assemble_tx(transition, key_id, eth_checksum_addr, "0x25", 0)
+    print("raw_tx_signed_payload", raw_tx_signed_payload)
 
-    rsv = sign_kms_raw(key_id, "value1")
-    sign_kms_reverse(message_hash, rsv['v'], rsv['r'], rsv['s'], eth_checksum_address)
+    # 怎么还原
+
+
+    # msghash = encode_defunct(text="value1")
+    # pub_key = get_kms_public_key(key_id)
+    # eth_checksum_address = calc_eth_address(pub_key)
+    # message_hash = Hash32(keccak(msghash.body))
+    #
+    # rsv = sign_kms_raw(key_id, "value1")
+    # sign_kms_reverse(message_hash, rsv['v'], rsv['r'], rsv['s'], eth_checksum_address)
 
