@@ -24,15 +24,21 @@ def lambda_handler(event, context):
     _logger.debug("incoming event: {}".format(event))
 
     operation = event.get('operation')
-    if not operation:
-        raise ValueError('operation needs to be specified in request and needs to be either "status", "sign" or "sign_raw"')
 
-    # {"operation": "status"}
-    if operation == 'status':
+    if not operation:
+        raise ValueError('operation needs to be specified in request and needs to be either "info", "sign" or "sign_raw"')
+
+    response_dict = {"code": 0, "msg": "success", "data": {}}
+
+    # {"operation": "info"}
+    if operation == 'info':
         # key_id = os.getenv('KMS_KEY_ID')
-        key_id = event.get('kms_key_id', "0")
+        info_body = event.get('info', {})
+        key_id = info_body.get('kms_key_id', "0")
         if key_id == "0":
-            raise ValueError("key id is {}".format(key_id))
+            response_dict['code'] = 100
+            response_dict['msg'] = "please input the correct key_id.."
+            return response_dict
 
         pub_key = get_kms_public_key(key_id)
         raw_pub_key = calc_eth_pubkey(pub_key)
@@ -41,52 +47,59 @@ def lambda_handler(event, context):
         # pub_key to str
         pub_key_str = to_hex(raw_pub_key)
 
-        return {'address': eth_checksum_address, "pub_key": pub_key_str}
+        response_dict['data'] = {'address': eth_checksum_address, "pub_key": pub_key_str}
+        return response_dict
 
     elif operation == 'sign':
+        sign_body = event.get('sign', {})
+
         # get key_id from send request
-        key_id = event.get('kms_key_id', "0")
+        key_id = sign_body.get('kms_key_id', "0")
         if key_id == "0":
-            raise ValueError("key id is {}".format(key_id))
+            response_dict['code'] = 100
+            response_dict['msg'] = "please input the correct key_id.."
+            return response_dict
 
         # get destination address from send request
-        to_address = event.get('to', "")
+        to_address = sign_body.get('to', "")
 
         # get amount from send request
-        value = event.get('value', "")
+        value = sign_body.get('value', "")
 
         # nonce from send request
-        nonce = event.get('nonce', "")
+        nonce = sign_body.get('nonce', "")
 
         # data from send request
-        data = event.get('data', '0x00')
+        data = sign_body.get('data', '0x00')
 
         # gas
-        gas = event.get('gas', "")
+        gas = sign_body.get('gas', "")
 
         # chainId
-        chain_id = event.get('chainId', "0x00")
+        chain_id = sign_body.get('chainId', "0x00")
 
         # optional params
         # type
-        type = int(str(event.get('type', "1")), 16)
+        type = int(str(sign_body.get('type', "1")), 16)
 
         # gasPrice
-        gas_price = event.get('gasPrice', "0x00")
+        gas_price = sign_body.get('gasPrice', "0x00")
 
         # maxFeePerGas
-        max_fee_per_gas = event.get('maxFeePerGas', "0x00")
+        max_fee_per_gas = sign_body.get('maxFeePerGas', "0x00")
 
         # maxPriorityFeePerGas
-        max_priority_fee_per_gas = event.get("maxPriorityFeePerGas", "0x00")
+        max_priority_fee_per_gas = sign_body.get("maxPriorityFeePerGas", "0x00")
 
         if int(chain_id, 16) < 0:
-            return {'operation': 'sign',
-                    'error': 'missing parameter - chain_id'}
+            response_dict['code'] = 100
+            response_dict['msg'] = "error, missing parameter: chain_id"
+            return response_dict
 
         if not (len(value) > 0 and len(nonce) > 0 and len(gas) > 0):
-            return {'operation': 'sign',
-                    'error': 'missing parameter - sign requires value, nonce and gas to be specified'}
+            response_dict['code'] = 100
+            response_dict['msg'] = "error, missing parameter: requires value, nonce and gas to be specified"
+            return response_dict
 
         # download public key from KMS
         pub_key = get_kms_public_key(key_id)
@@ -104,16 +117,20 @@ def lambda_handler(event, context):
                                                                 eth_checksum_addr=eth_checksum_addr,
                                                                 chain_id=chain_id,
                                                                 type=type)
-
-        return {"signed_tx": raw_tx_signed_payload}
+        response_dict['data'] = {"signed_tx": raw_tx_signed_payload}
+        return response_dict
 
     elif operation == 'sign_raw':
-        key_id = event.get('kms_key_id', "0")
+        sign_raw_body = event.get("sign_raw")
+        key_id = sign_raw_body.get('kms_key_id', "0")
         if key_id == "0":
-            raise ValueError("key id is {}".format(key_id))
-        data = event.get('data', '0x00')
+            response_dict['code'] = 100
+            response_dict['msg'] = "please input the correct key_id.."
+            return response_dict
+        data = sign_raw_body.get('data', '0x00')
 
         signature = sign_kms_raw(key_id, data)
-        return signature
+        response_dict['data'] = signature
+        return response_dict
 
 
