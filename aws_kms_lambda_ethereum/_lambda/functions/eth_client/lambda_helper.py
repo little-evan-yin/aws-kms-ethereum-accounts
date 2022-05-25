@@ -7,6 +7,7 @@ import sys
 
 import asn1tools
 import boto3
+from eth_utils import to_hex
 from eth_account import Account
 from eth_account._utils.signing import (
     encode_transaction, serializable_unsigned_transaction_from_dict)
@@ -86,10 +87,43 @@ def sign_kms_raw(key_id: str, data: str) -> dict:
 
     _logger.info("msg_hash: ", message_hash)
 
-    signature = sign_kms(key_id, message_hash)
-    # print(signature)
-    return signature['Signature']
+    signature = find_eth_signature(key_id, message_hash)
 
+    pub_key = get_kms_public_key(key_id)
+    eth_checksum_address = calc_eth_address(pub_key)
+
+    for v in [27, 28]:
+        recovered_addr = Account.recoverHash(message_hash=message_hash,
+                                             vrs=(v, signature['r'], signature['s']))
+
+        if recovered_addr == eth_checksum_address:
+            return {"r": to_hex(signature['r']), 's': to_hex(signature['s']), 'v': v}
+
+    raise ValueError("sign error key_id {} data {}".format(key_id, data))
+
+def calc_eth_pubkey(pub_key) -> str:
+    SUBJECT_ASN = '''
+    Key DEFINITIONS ::= BEGIN
+
+    SubjectPublicKeyInfo  ::=  SEQUENCE  {
+       algorithm         AlgorithmIdentifier,
+       subjectPublicKey  BIT STRING
+     }
+
+    AlgorithmIdentifier  ::=  SEQUENCE  {
+        algorithm   OBJECT IDENTIFIER,
+        parameters  ANY DEFINED BY algorithm OPTIONAL
+      }
+
+    END
+    '''
+    key = asn1tools.compile_string(SUBJECT_ASN)
+    key_decoded = key.decode('SubjectPublicKeyInfo', pub_key)
+
+    pub_key_raw = key_decoded['subjectPublicKey'][0]
+    pub_key = pub_key_raw[1:len(pub_key_raw)]
+
+    return pub_key
 
 def calc_eth_address(pub_key) -> str:
     SUBJECT_ASN = '''
@@ -123,7 +157,7 @@ def calc_eth_address(pub_key) -> str:
     return eth_checksum_addr
 
 
-def find_eth_signature(params: EthKmsParams, plaintext: bytes) -> dict:
+def find_eth_signature(kms_key_id: str, plaintext: bytes) -> dict:
     SIGNATURE_ASN = '''
     Signature DEFINITIONS ::= BEGIN
 
@@ -135,7 +169,7 @@ def find_eth_signature(params: EthKmsParams, plaintext: bytes) -> dict:
     '''
     signature_schema = asn1tools.compile_string(SIGNATURE_ASN)
 
-    signature = sign_kms(params.get_kms_key_id(), plaintext)
+    signature = sign_kms(kms_key_id, plaintext)
 
     # https://tools.ietf.org/html/rfc3279#section-2.2.3
     signature_decoded = signature_schema.decode('Ecdsa-Sig-Value', signature['Signature'])
@@ -146,6 +180,8 @@ def find_eth_signature(params: EthKmsParams, plaintext: bytes) -> dict:
 
     if s > secp256_k1_n_half:
         s = SECP256_K1_N - s
+
+
 
     return {'r': r, 's': s}
 
@@ -177,12 +213,14 @@ def get_tx_params(to_address: str, value: str, nonce: str, data: str, chain_id: 
                   gas_price: str, type: int, max_fee_per_gas: str, max_priority_fee_per_gas: str) -> dict:
     transaction = {
         'nonce': nonce,
-        'to': to_address,
         'value': value,
         'data': data,
         'chainId': chain_id,
         'gas': gas
     }
+
+    if len(to_address) > 0:
+        transaction['to'] = to_address
 
     if type > 1:
         # eip1559
@@ -195,11 +233,11 @@ def get_tx_params(to_address: str, value: str, nonce: str, data: str, chain_id: 
     return transaction
 
 
-def assemble_tx(tx_params: dict, params: EthKmsParams, eth_checksum_addr: str, chain_id: str, type: int) -> (bytes, bytes):
+def assemble_tx(tx_params: dict, kms_key_id: str, eth_checksum_addr: str, chain_id: str, type: int) -> (bytes, bytes):
     tx_unsigned = serializable_unsigned_transaction_from_dict(transaction_dict=tx_params)
     tx_hash = tx_unsigned.hash()
 
-    tx_sig = find_eth_signature(params=params,
+    tx_sig = find_eth_signature(kms_key_id,
                                 plaintext=tx_hash)
 
     tx_eth_recovered_pub_addr = get_recovery_id(msg_hash=tx_hash,
