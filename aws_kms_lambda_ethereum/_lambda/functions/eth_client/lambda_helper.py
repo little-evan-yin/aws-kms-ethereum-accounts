@@ -32,7 +32,6 @@ SECP256_K1_N = int("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd036
 
 
 class EthKmsParams:
-
     def __init__(self, kms_key_id: str, eth_network: str):
         self._kms_key_id = kms_key_id
         self._eth_network = eth_network
@@ -183,18 +182,15 @@ def find_eth_signature(kms_key_id: str, plaintext: bytes) -> dict:
 
 
 def get_recovery_id(msg_hash, r, s, eth_checksum_addr, chain_id) -> dict:
-    # 16 to 10
     chainid = int(chain_id, 16)
-    if chainid > 0:
-        v_lower = chainid * 2 + 35
-        v_range = [v_lower, v_lower + 1]
+    v_lower = chainid * 2 + 35
+    v_range = [v_lower, v_lower + 1]
 
-        for v in v_range:
-            recovered_addr = Account.recoverHash(message_hash=msg_hash, vrs=(v, r, s))
+    for v in v_range:
+        recovered_addr = Account.recoverHash(message_hash=msg_hash, vrs=(v, r, s))
 
-            if recovered_addr == eth_checksum_addr:
-                print("1. recovered_addr: ", recovered_addr)
-                return {"recovered_addr": recovered_addr, 'v': v}
+        if recovered_addr == eth_checksum_addr:
+            return {"recovered_addr": recovered_addr, 'v': v}
 
     return {}
 
@@ -226,7 +222,6 @@ def get_tx_params(to_address: str, value: str, nonce: str, data: str, chain_id: 
 
 def assemble_tx(tx_params: dict, kms_key_id: str, eth_checksum_addr: str, chain_id: str, type: int) -> (bytes, bytes):
     tx_unsigned = serializable_unsigned_transaction_from_dict(transaction_dict=tx_params)
-    print("tx_unsigned: ", tx_unsigned)
     tx_hash = tx_unsigned.hash()
 
     tx_sig = find_eth_signature(kms_key_id,
@@ -238,71 +233,13 @@ def assemble_tx(tx_params: dict, kms_key_id: str, eth_checksum_addr: str, chain_
                                                 eth_checksum_addr=eth_checksum_addr,
                                                 chain_id=chain_id)
 
-    print("tx_eth_recovered_pub_addr: ", tx_eth_recovered_pub_addr)
     tx_encoded = encode_transaction(unsigned_transaction=tx_unsigned,
                                     vrs=(tx_eth_recovered_pub_addr['v'], tx_sig['r'], tx_sig['s']))
 
     tx_encoded_hex = w3.toHex(tx_encoded)
     tx_hash = w3.keccak(hexstr=tx_encoded_hex).hex()
 
-    print("tx_hash:", tx_hash)
     return tx_hash, tx_encoded_hex
 
 
-if __name__ == "__main__":
-    # transition = {
-    #     "to": "0x73759Fe3b4b12511595690f82cf274ac646F3db1",
-    #     "value": "0x10000",
-    #     "nonce": "0x0",
-    #     "gas": "0x55555",
-    #     "chainId": "0x17",
-    #     "data": "10101001111",
-    #     # 当type = 2时表示下面的元素时需要的，同时gasPrice去掉
-    #     "type": 2,
-    #     "maxFeePerGas": "0x1234",
-    #     "maxPriorityFeePerGas": "0x1234"
-    # }
-    """
-      operation: 'sign',
-  kms_key_id: 'arn:aws:kms:ap-northeast-1:511868236604:key/09576602-8bb4-422d-863e-8c3225ddcd90',
-  to: '0x471C9A8acc6562bb28cEbE041668cC224AD0F3Bd',
-  value: '0x00',
-  nonce: '0x00',
-  data: '0x0000abc',
-  chainId: '0x25',
-  gas: '0x0f4240',
-  gasPrice: '0x00'
-
-    """
-
-    transition = {
-        "to": "0x471C9A8acc6562bb28cEbE041668cC224AD0F3Bd",
-        "value": "0x00",
-        "nonce": "0x00",
-        "data": "0x0000abc",
-        "chainId": "0x25",
-        "gas": "0x0f4240",
-        "gasPrice": "0x00"
-    }
-    key_id = "arn:aws:kms:ap-northeast-1:511868236604:key/09576602-8bb4-422d-863e-8c3225ddcd90"
-    pub_key = get_kms_public_key(key_id)
-    eth_checksum_addr = calc_eth_address(pub_key)
-    # params = EthKmsParams(
-    #     kms_key_id=key_id,
-    #     eth_network="re"
-    # )
-    print("eth_check_sum_addr: ", eth_checksum_addr)
-    raw_tx_signed_hash, raw_tx_signed_payload = assemble_tx(transition, key_id, eth_checksum_addr, "0x25", 0)
-    print("raw_tx_signed_payload", raw_tx_signed_payload)
-
-    # 怎么还原
-
-
-    # msghash = encode_defunct(text="value1")
-    # pub_key = get_kms_public_key(key_id)
-    # eth_checksum_address = calc_eth_address(pub_key)
-    # message_hash = Hash32(keccak(msghash.body))
-    #
-    # rsv = sign_kms_raw(key_id, "value1")
-    # sign_kms_reverse(message_hash, rsv['v'], rsv['r'], rsv['s'], eth_checksum_address)
 

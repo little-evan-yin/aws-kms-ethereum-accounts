@@ -6,7 +6,6 @@ import os
 from eth_utils import to_hex
 
 from lambda_helper import (assemble_tx,
-                           get_params,
                            get_tx_params,
                            calc_eth_address,
                            get_kms_public_key,
@@ -24,11 +23,6 @@ _logger.setLevel(LOG_LEVEL)
 def lambda_handler(event, context):
     _logger.debug("incoming event: {}".format(event))
 
-    try:
-        params = get_params()
-    except Exception as e:
-        raise e
-
     operation = event.get('operation')
     if not operation:
         raise ValueError('operation needs to be specified in request and needs to be either "status", "sign" or "sign_raw"')
@@ -39,8 +33,6 @@ def lambda_handler(event, context):
         key_id = event.get('kms_key_id', "0")
         if key_id == "0":
             raise ValueError("key id is {}".format(key_id))
-        # if key_id == "0":
-        #     key_id = os.getenv('KMS_KEY_ID')
 
         pub_key = get_kms_public_key(key_id)
         raw_pub_key = calc_eth_pubkey(pub_key)
@@ -52,15 +44,13 @@ def lambda_handler(event, context):
         return {'address': eth_checksum_address, "pub_key": pub_key_str}
 
     elif operation == 'sign':
-        # get key_id from environment varaible
-        # key_id = os.getenv('KMS_KEY_ID')
         # get key_id from send request
         key_id = event.get('kms_key_id', "0")
         if key_id == "0":
             raise ValueError("key id is {}".format(key_id))
 
         # get destination address from send request
-        to_address = event.get('to', "")      # 16进制字符串
+        to_address = event.get('to', "")
 
         # get amount from send request
         value = event.get('value', "")
@@ -90,14 +80,13 @@ def lambda_handler(event, context):
         # maxPriorityFeePerGas
         max_priority_fee_per_gas = event.get("maxPriorityFeePerGas", "0x00")
 
-        pub_key = get_kms_public_key(key_id)
-        eth_checksum_address = calc_eth_address(pub_key)
-        if int(chain_id, 16) <= 0:
-            return {"chainId": chain_id, "gas": gas, "type": type,  "eth_checksum_address": eth_checksum_address}
+        if int(chain_id, 16) < 0:
+            return {'operation': 'sign',
+                    'error': 'missing parameter - chain_id'}
 
         if not (len(value) > 0 and len(nonce) > 0 and len(gas) > 0):
             return {'operation': 'sign',
-                    'error': 'missing parameter - sign requires value, to_address, nonce and gas to be specified'}
+                    'error': 'missing parameter - sign requires value, nonce and gas to be specified'}
 
         # download public key from KMS
         pub_key = get_kms_public_key(key_id)
@@ -106,9 +95,8 @@ def lambda_handler(event, context):
         eth_checksum_addr = calc_eth_address(pub_key)
 
         # collect raw parameters for Ethereum transaction
-        tx_params = get_tx_params(to_address, value, nonce, data, chain_id, gas, gas_price, type, max_fee_per_gas, max_priority_fee_per_gas)
-
-        _logger.info("tx_params: ", tx_params)
+        tx_params = get_tx_params(to_address, value, nonce, data, chain_id, gas, gas_price, type, max_fee_per_gas,
+                                  max_priority_fee_per_gas)
 
         # assemble Ethereum transaction and sign it offline
         raw_tx_signed_hash, raw_tx_signed_payload = assemble_tx(tx_params=tx_params,
@@ -120,11 +108,9 @@ def lambda_handler(event, context):
         return {"signed_tx": raw_tx_signed_payload}
 
     elif operation == 'sign_raw':
-        # key_id = os.getenv('KMS_KEY_ID')
         key_id = event.get('kms_key_id', "0")
         if key_id == "0":
             raise ValueError("key id is {}".format(key_id))
-        # construct data
         data = event.get('data', '0x00')
 
         signature = sign_kms_raw(key_id, data)
