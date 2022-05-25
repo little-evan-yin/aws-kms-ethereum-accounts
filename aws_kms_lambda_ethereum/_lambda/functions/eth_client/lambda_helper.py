@@ -85,18 +85,25 @@ def sign_kms_raw(key_id: str, data: str) -> dict:
     msghash = encode_defunct(text=data)
     message_hash = Hash32(keccak(msghash.body))
 
-    _logger.info("msg_hash: ", message_hash)
+    _logger.debug("msg_hash: ", message_hash)
 
     signature = find_eth_signature(key_id, message_hash)
 
     pub_key = get_kms_public_key(key_id)
     eth_checksum_address = calc_eth_address(pub_key)
-
+    _logger.debug("key_id: ", key_id)
+    _logger.debug("eth_checksum_address: ", eth_checksum_address)
+    _logger.debug("data: ", data)
+    _logger.debug("message_hash: ", message_hash)
     for v in [27, 28]:
+
         recovered_addr = Account.recoverHash(message_hash=message_hash,
                                              vrs=(v, signature['r'], signature['s']))
-
         if recovered_addr == eth_checksum_address:
+            _logger.debug("recovered_addr: ", recovered_addr)
+            _logger.debug("raw_r: ", signature['r'])
+            _logger.debug("raw_s: ", signature['s'])
+            _logger.debug("rsv: ", to_hex(signature['r']), '#', to_hex(signature['s']), '#', v)
             return {"r": to_hex(signature['r']), 's': to_hex(signature['s']), 'v': v}
 
     raise ValueError("sign error key_id {} data {}".format(key_id, data))
