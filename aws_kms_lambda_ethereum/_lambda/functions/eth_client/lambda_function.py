@@ -11,7 +11,8 @@ from lambda_helper import (assemble_tx,
                            get_kms_public_key,
                            calc_eth_pubkey,
                            sign_kms_raw,
-                           sign_kms_raw_1559)
+                           sign_kms_raw_1559,
+                           sign_kms_raw_byte)
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "WARNING")
 LOG_FORMAT = "%(levelname)s:%(lineno)s:%(message)s"
@@ -155,3 +156,22 @@ def lambda_handler(event, context):
             response_dict['msg'] = "error: cannot get the correct rsv"
         response_dict['data'] = signature
         return response_dict
+
+    elif operation == "signBytes1559":
+        sign_byte_1559_body = event['signBytes1559'] if 'signBytes1559' in event else event.get("sign_bytes_1559", {})
+        key_id = sign_byte_1559_body['kmsKeyId'] if 'kmsKeyId' in sign_byte_1559_body else sign_byte_1559_body.get(
+            'kms_key_id', "0")
+        if key_id == "0":
+            response_dict['code'] = 100
+            response_dict['msg'] = "please input the correct key_id.."
+            return response_dict
+        data = sign_byte_1559_body.get('data', [])
+        chain_id = sign_byte_1559_body.get('chainId', '0x00')
+
+        signature = sign_kms_raw_byte(key_id, bytearray(data), chain_id)
+        if 'r' not in signature:
+            response_dict['code'] = 100
+            response_dict['msg'] = "error: cannot get the correct rsv"
+        response_dict['data'] = signature
+        return response_dict
+

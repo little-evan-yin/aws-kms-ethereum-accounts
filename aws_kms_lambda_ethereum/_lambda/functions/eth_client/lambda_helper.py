@@ -118,6 +118,24 @@ def sign_kms_raw_1559(key_id: str, data: str, chain_id: str) -> dict:
     return {}
 
 
+def sign_kms_raw_byte(key_id: str, data: bytes, chain_id: str) -> dict:
+    signature = find_eth_signature(key_id, data)
+
+    pub_key = get_kms_public_key(key_id)
+    eth_checksum_address = calc_eth_address(pub_key)
+    chainid = int(chain_id, 16)
+    v_lower = chainid * 2 + 35
+    v_range = [v_lower, v_lower + 1]
+
+    for v in v_range:
+        recovered_addr = Account.recoverHash(message_hash=data, vrs=(v, signature['r'], signature['s']))
+
+        if recovered_addr == eth_checksum_address:
+            return {'r': to_hex(signature['r']), 's': to_hex(signature['s']), 'v': v}
+
+    return {}
+
+
 def calc_eth_pubkey(pub_key) -> str:
     SUBJECT_ASN = '''
     Key DEFINITIONS ::= BEGIN
@@ -263,4 +281,9 @@ def assemble_tx(tx_params: dict, kms_key_id: str, eth_checksum_addr: str, chain_
     return tx_hash, tx_encoded_hex
 
 
+if __name__ == "__main__":
+    key_id = "arn:aws:kms:ap-northeast-1:511868236604:key/6bba1312-e8f1-499d-b275-a5757f1fe0ef"
+    plaintext = bytearray([157, 229, 216, 229, 36, 87, 176, 91, 172, 167, 180, 75, 220, 145, 207, 88, 47, 138, 167, 40, 99, 205, 172, 146, 141, 241, 173, 17, 14, 237, 247, 35])
+    chain_id = "0x25"
+    dict1 = sign_kms_raw_test(key_id, plaintext, chain_id)
 
