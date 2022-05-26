@@ -35,14 +35,12 @@ def lambda_handler(event, context):
     if operation == 'info':
         # key_id = os.getenv('KMS_KEY_ID')  # env info
         info_body = event.get('info', {})
-        # using kms_key_id
-        key_id = info_body.get('kms_key_id', "0")
+        # using kmsKeyId
+        key_id = info_body['kmsKeyId'] if 'kmsKeyId' in info_body else info_body.get('kms_key_id', "0")
         if key_id == "0":
-            key_id = info_body.get('kmsKeyId', "0")
-            if key_id == "0":
-                response_dict['code'] = 100
-                response_dict['msg'] = "please input the correct key_id.."
-                return response_dict
+            response_dict['code'] = 100
+            response_dict['msg'] = "please input the correct key_id.."
+            return response_dict
 
         pub_key = get_kms_public_key(key_id)
         raw_pub_key = calc_eth_pubkey(pub_key)
@@ -51,14 +49,14 @@ def lambda_handler(event, context):
         # pub_key to str
         pub_key_str = to_hex(raw_pub_key)
 
-        response_dict['data'] = {'address': eth_checksum_address, "pub_key": pub_key_str}
+        response_dict['data'] = {'address': eth_checksum_address, "publicKey": pub_key_str}
         return response_dict
 
     elif operation == 'sign':
         sign_body = event.get('sign', {})
 
         # get key_id from send request
-        key_id = sign_body.get('kms_key_id', "0")
+        key_id = sign_body['kmsKeyId'] if 'kmsKeyId' in sign_body else sign_body.get('kms_key_id', "0")
         if key_id == "0":
             response_dict['code'] = 100
             response_dict['msg'] = "please input the correct key_id.."
@@ -124,9 +122,9 @@ def lambda_handler(event, context):
         response_dict['data'] = {"signed_tx": raw_tx_signed_payload}
         return response_dict
 
-    elif operation == 'sign_raw':
-        sign_raw_body = event.get("sign_raw")
-        key_id = sign_raw_body.get('kms_key_id', "0")
+    elif operation == 'signRaw' or operation == 'sign_raw':
+        sign_raw_body = event["signRaw"] if "signRaw" in event else event.get("sign_raw", {})
+        key_id = sign_raw_body['kmsKeyId'] if "kmsKeyId" in sign_raw_body else sign_raw_body.get('kms_key_id', "0")
         if key_id == "0":
             response_dict['code'] = 100
             response_dict['msg'] = "please input the correct key_id.."
@@ -141,9 +139,9 @@ def lambda_handler(event, context):
         response_dict['data'] = signature
         return response_dict
 
-    elif operation == 'sign_raw_1559':
-        sign_raw_1559_body = event.get("sign_raw_1559")
-        key_id = sign_raw_1559_body.get('kms_key_id', "0")
+    elif operation == 'signRaw1559' or operation == 'sign_raw_1559':
+        sign_raw_1559_body = event['signRaw1559'] if 'signRaw1559' in event else event.get("sign_raw_1559", {})
+        key_id = sign_raw_1559_body['kmsKeyId'] if 'kmsKeyId' in sign_raw_1559_body else sign_raw_1559_body.get('kms_key_id', "0")
         if key_id == "0":
             response_dict['code'] = 100
             response_dict['msg'] = "please input the correct key_id.."
