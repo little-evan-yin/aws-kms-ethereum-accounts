@@ -92,9 +92,30 @@ def sign_kms_raw(key_id: str, data: str) -> dict:
         recovered_addr = Account.recoverHash(message_hash=message_hash,
                                              vrs=(v, signature['r'], signature['s']))
         if recovered_addr == eth_checksum_address:
-            return {"r": to_hex(signature['r']), 's': to_hex(signature['s']), 'v': v}
+            return {'r': to_hex(signature['r']), 's': to_hex(signature['s']), 'v': v}
 
-    raise ValueError("sign error key_id {} data {}".format(key_id, data))
+    raise {}
+
+
+def sign_kms_raw_1559(key_id: str, data: str, chain_id: str) -> dict:
+    msghash = encode_defunct(text=data)
+    joined = b'\x19' + msghash.version + msghash.header + msghash.body
+    message_hash = Hash32(keccak(joined))
+    signature = find_eth_signature(key_id, message_hash)
+
+    pub_key = get_kms_public_key(key_id)
+    eth_checksum_address = calc_eth_address(pub_key)
+    chainid = int(chain_id, 16)
+    v_lower = chainid * 2 + 35
+    v_range = [v_lower, v_lower + 1]
+
+    for v in v_range:
+        recovered_addr = Account.recoverHash(message_hash=message_hash, vrs=(v, signature['r'], signature['s']))
+
+        if recovered_addr == eth_checksum_address:
+            return {'r': to_hex(signature['r']), 's': to_hex(signature['s']), 'v': v}
+
+    return {}
 
 
 def calc_eth_pubkey(pub_key) -> str:
