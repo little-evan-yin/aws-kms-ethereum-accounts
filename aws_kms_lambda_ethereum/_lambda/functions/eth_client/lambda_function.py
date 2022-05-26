@@ -33,13 +33,16 @@ def lambda_handler(event, context):
 
     # {"operation": "info"}
     if operation == 'info':
-        # key_id = os.getenv('KMS_KEY_ID')
+        # key_id = os.getenv('KMS_KEY_ID')  # env info
         info_body = event.get('info', {})
+        # using kms_key_id
         key_id = info_body.get('kms_key_id', "0")
         if key_id == "0":
-            response_dict['code'] = 100
-            response_dict['msg'] = "please input the correct key_id.."
-            return response_dict
+            key_id = info_body.get('kmsKeyId', "0")
+            if key_id == "0":
+                response_dict['code'] = 100
+                response_dict['msg'] = "please input the correct key_id.."
+                return response_dict
 
         pub_key = get_kms_public_key(key_id)
         raw_pub_key = calc_eth_pubkey(pub_key)
