@@ -119,7 +119,7 @@ def lambda_handler(event, context):
                                                                 eth_checksum_addr=eth_checksum_addr,
                                                                 chain_id=chain_id,
                                                                 type=type)
-        response_dict['data'] = {"signed_tx": raw_tx_signed_payload}
+        response_dict['data'] = {"signedTx": raw_tx_signed_payload}
         return response_dict
 
     elif operation == 'signRaw' or operation == 'sign_raw':
