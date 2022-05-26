@@ -139,7 +139,7 @@ def lambda_handler(event, context):
         return response_dict
 
     elif operation == 'sign_raw_1559':
-        sign_raw_1559_body = event.get("sign_raw")
+        sign_raw_1559_body = event.get("sign_raw_1559")
         key_id = sign_raw_1559_body.get('kms_key_id', "0")
         if key_id == "0":
             response_dict['code'] = 100
