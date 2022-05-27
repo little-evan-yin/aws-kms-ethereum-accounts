@@ -136,7 +136,7 @@ def lambda_handler(event, context):
         if 'r' not in signature:
             response_dict['code'] = 100
             response_dict['msg'] = "error: cannot get the correct rsv"
-
+            return response_dict
         response_dict['data'] = signature
         return response_dict
 
@@ -154,6 +154,7 @@ def lambda_handler(event, context):
         if 'r' not in signature:
             response_dict['code'] = 100
             response_dict['msg'] = "error: cannot get the correct rsv"
+            return response_dict
         response_dict['data'] = signature
         return response_dict
 
@@ -168,11 +169,17 @@ def lambda_handler(event, context):
         data = sign_byte_1559_body.get('data', [])
         chain_id = sign_byte_1559_body.get('chainId', '0x00')
         # data to hash bytes
-        datahash = bytes.fromhex(data)
+        if '0x' not in data:
+            response_dict['code'] = 100
+            response_dict['msg'] = "error: data is not hex"
+            return response_dict
+
+        datahash = bytes.fromhex(data[2:])
         signature = sign_kms_raw_byte(key_id, datahash, chain_id)
         if 'r' not in signature:
             response_dict['code'] = 100
             response_dict['msg'] = "error: cannot get the correct rsv"
+            return response_dict
         response_dict['data'] = signature
         return response_dict
 
