@@ -131,6 +131,7 @@ def sign_kms_raw_byte(key_id: str, data: bytes, chain_id: str) -> dict:
         recovered_addr = Account.recoverHash(message_hash=data, vrs=(v, signature['r'], signature['s']))
 
         if recovered_addr == eth_checksum_address:
+            print("true")
             return {'r': to_hex(signature['r']), 's': to_hex(signature['s']), 'v': v}
 
     return {}
@@ -283,7 +284,15 @@ def assemble_tx(tx_params: dict, kms_key_id: str, eth_checksum_addr: str, chain_
 
 if __name__ == "__main__":
     key_id = "arn:aws:kms:ap-northeast-1:511868236604:key/6bba1312-e8f1-499d-b275-a5757f1fe0ef"
-    plaintext = bytearray([157, 229, 216, 229, 36, 87, 176, 91, 172, 167, 180, 75, 220, 145, 207, 88, 47, 138, 167, 40, 99, 205, 172, 146, 141, 241, 173, 17, 14, 237, 247, 35])
+
+    # plaintext = bytes([157, 229, 216, 229, 36, 87, 176, 91, 172, 167, 180, 75, 220, 145, 207, 88, 47, 138, 167, 40, 99, 205, 172, 146, 141, 241, 173, 17, 14, 237, 247, 35])
+    texthex = "00000000000000000000000000000000000000000000000068656c6c6f6b6d73"
+
+    plaintext = bytes.fromhex(texthex)
+    # plaintext = texthex.encode()
+    print(plaintext)
+
     chain_id = "0x25"
-    dict1 = sign_kms_raw_test(key_id, plaintext, chain_id)
+    dict1 = sign_kms_raw_byte(key_id, plaintext, chain_id)
+
 
