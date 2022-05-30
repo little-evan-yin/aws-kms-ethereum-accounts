@@ -171,7 +171,7 @@ def lambda_handler(event, context):
         # data to hash bytes
         if '0x' not in data:
             response_dict['code'] = 100
-            response_dict['msg'] = "error: data is not hex"
+            response_dict['msg'] = "error: data is not hex format"
             return response_dict
 
         datahash = bytes.fromhex(data[2:])
@@ -182,4 +182,3 @@ def lambda_handler(event, context):
             return response_dict
         response_dict['data'] = signature
         return response_dict
-

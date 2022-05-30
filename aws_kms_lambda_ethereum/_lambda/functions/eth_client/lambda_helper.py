@@ -281,10 +281,3 @@ def assemble_tx(tx_params: dict, kms_key_id: str, eth_checksum_addr: str, chain_
 
     return tx_hash, tx_encoded_hex
 
-
-if __name__ == "__main__":
-    data = "0x5fa51eb8246d2a55777c8879d20249a312f41d015794e0f4b1ea296c900e2193"
-    chain_id = "0x25"
-    key_id = "arn:aws:kms:ap-northeast-1:511868236604:key/09576602-8bb4-422d-863e-8c3225ddcd90"
-    datahash = bytes.fromhex(data[2:])
-    signature = sign_kms_raw_byte(key_id, datahash, chain_id)
