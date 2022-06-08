@@ -64,9 +64,7 @@ def get_kms_public_key(key_id: str) -> bytes:
     # 需要指定区域、身份信息已加快初始速度吗？？
     config = Config(region_name="ap-northeast-1", connect_timeout=5, max_pool_connections=100,
                     retries={'max_attempts': 10, 'mode': 'standard'})
-    client = boto3.client(service_name='kms',
-                          config=config,
-                          endpoint_url="https://vpce-09f3f372ec570ac83-smifdyod.kms.ap-northeast-1.vpce.amazonaws.com")
+    client = boto3.client(service_name='kms')
     response = client.get_public_key(
         KeyId=key_id
     )
@@ -83,9 +81,7 @@ def sign_kms(key_id: str, msg_hash: bytes) -> dict:
     config = Config(region_name="ap-northeast-1", connect_timeout=5, max_pool_connections=100,
                     retries={'max_attempts': 10, 'mode': 'standard'})
     # 增加endpoint_url指向VPC
-    client = boto3.client(service_name='kms',
-                          config=config,
-                          endpoint_url="https://vpce-09f3f372ec570ac83-smifdyod.kms.ap-northeast-1.vpce.amazonaws.com")
+    client = boto3.client(service_name='kms')
 
     response = client.sign(
         KeyId=key_id,

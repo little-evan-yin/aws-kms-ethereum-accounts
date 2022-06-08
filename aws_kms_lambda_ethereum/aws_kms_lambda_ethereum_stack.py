@@ -59,7 +59,7 @@ class AwsKmsLambdaEthereumStack(core.Stack):
         cfn_cmk.key_spec = 'ECC_SECG_P256K1'
         cfn_cmk.key_usage = 'SIGN_VERIFY'
 
-        eth_client_dev = EthLambda(self, "eth-kms-client-dev",
+        eth_client_dev = EthLambda(self, "eth-kms-client",
                                    dir="aws_kms_lambda_ethereum/_lambda/functions/eth_client",
                                    env={"LOG_LEVEL": "DEBUG",
                                         "KMS_KEY_ID": cmk.key_id,
