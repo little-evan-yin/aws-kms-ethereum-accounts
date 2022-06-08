@@ -11,7 +11,7 @@ with open("README.md") as fp:
 
 setuptools.setup(
     name="aws_kms_lambda_ethereum",
-    version="0.0.1",
+    version="0.0.2",
 
     description="An empty CDK Python app",
     long_description=long_description,

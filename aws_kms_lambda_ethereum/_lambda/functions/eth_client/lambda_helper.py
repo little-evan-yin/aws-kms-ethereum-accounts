@@ -4,9 +4,11 @@
 import logging
 import os
 import sys
+import time
 
 import asn1tools
 import boto3
+from botocore.client import Config
 from eth_utils import to_hex
 from eth_account import Account
 from eth_account._utils.signing import (
@@ -57,18 +59,33 @@ def get_params() -> EthKmsParams:
 
 
 def get_kms_public_key(key_id: str) -> bytes:
-    client = boto3.client('kms')
-
+    # client = session.client('kms')
+    start_time = time.time()
+    # 需要指定区域、身份信息已加快初始速度吗？？
+    config = Config(region_name="ap-northeast-1", connect_timeout=5, max_pool_connections=100,
+                    retries={'max_attempts': 10, 'mode': 'standard'})
+    client = boto3.client(service_name='kms',
+                          config=config,
+                          endpoint_url="https://vpce-09f3f372ec570ac83-smifdyod.kms.ap-northeast-1.vpce.amazonaws.com")
     response = client.get_public_key(
         KeyId=key_id
     )
+    end_time = time.time()
+    print("get pubkey cost time: {} 's".format(end_time - start_time))
 
     return response['PublicKey']
 
 
 def sign_kms(key_id: str, msg_hash: bytes) -> dict:
-
-    client = boto3.client('kms')
+    # client = session.resource('kms')
+    # client = session.client('kms')
+    start_time = time.time()
+    config = Config(region_name="ap-northeast-1", connect_timeout=5, max_pool_connections=100,
+                    retries={'max_attempts': 10, 'mode': 'standard'})
+    # 增加endpoint_url指向VPC
+    client = boto3.client(service_name='kms',
+                          config=config,
+                          endpoint_url="https://vpce-09f3f372ec570ac83-smifdyod.kms.ap-northeast-1.vpce.amazonaws.com")
 
     response = client.sign(
         KeyId=key_id,
@@ -76,18 +93,21 @@ def sign_kms(key_id: str, msg_hash: bytes) -> dict:
         MessageType='DIGEST',
         SigningAlgorithm='ECDSA_SHA_256'
     )
+    end_time = time.time()
+    print("sign kms cost time: {} 's".format(end_time - start_time))
 
     return response
 
 
 def sign_kms_raw(key_id: str, data: str) -> dict:
+    pub_key = get_kms_public_key(key_id)
+    eth_checksum_address = calc_eth_address(pub_key)
+
     msghash = encode_defunct(text=data)
     joined = b'\x19' + msghash.version + msghash.header + msghash.body
     message_hash = Hash32(keccak(joined))
     signature = find_eth_signature(key_id, message_hash)
 
-    pub_key = get_kms_public_key(key_id)
-    eth_checksum_address = calc_eth_address(pub_key)
     for v in [27, 28]:
         recovered_addr = Account.recoverHash(message_hash=message_hash,
                                              vrs=(v, signature['r'], signature['s']))
@@ -281,3 +301,10 @@ def assemble_tx(tx_params: dict, kms_key_id: str, eth_checksum_addr: str, chain_
 
     return tx_hash, tx_encoded_hex
 
+
+if __name__ == "__main__":
+    # 测试sign msg
+    for i in range(50):
+        key_id = "arn:aws:kms:ap-northeast-1:511868236604:key/6bba1312-e8f1-499d-b275-a5757f1fe0ef"
+        data = "hellokms" + str(i) + "count"
+        sign_kms_raw(key_id, data)
